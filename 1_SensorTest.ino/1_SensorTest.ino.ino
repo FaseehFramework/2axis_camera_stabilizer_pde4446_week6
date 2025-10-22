@@ -26,8 +26,24 @@ void setup() {
 }
 
 void loop() {
-  // For now, we just confirmed it's working in setup.
-  // We'll add data reading in the next commit.
-  delay(1000);
-  Serial.println("Sensor is working");
+  sensors_event_t a, g, temp;
+  
+  mpu.getEvent(&a, &g, &temp);
+
+  Serial.print("Accel X: ");
+  Serial.print(a.acceleration.x);
+  Serial.print(", Y: ");
+  Serial.print(a.acceleration.y);
+  Serial.print(", Z: ");
+  Serial.println(a.acceleration.z);
+
+  Serial.print("Gyro X: ");
+  Serial.print(g.gyro.x);
+  Serial.print(", Y: ");
+  Serial.print(g.gyro.y);
+  Serial.print(", Z: ");
+  Serial.println(g.gyro.z);
+
+  Serial.println("---------------------------------");
+  delay(100); 
 }
