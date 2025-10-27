@@ -13,9 +13,9 @@ uint16_t packetSize;
 uint16_t fifoCount;
 uint8_t fifoBuffer[64];
 
-Quaternion q;           // [w, x, y, z] quaternion container
-VectorFloat gravity;    // [x, y, z] gravity vector
-float ypr[3];           // [yaw, pitch, roll] yaw/pitch/roll container
+Quaternion q;
+VectorFloat gravity;
+float ypr[3]; // [yaw, pitch, roll]
 
 #define INTERRUPT_PIN 2
 volatile bool mpuInterrupt = false;
@@ -28,7 +28,7 @@ void setup() {
         Wire.begin();
         Wire.setClock(400000);
     #endif
-    Serial.begin(115200);
+    Serial.begin(115200); 
     
     Serial.println(F("I2C device setup"));
     mpu.initialize();
@@ -42,6 +42,10 @@ void setup() {
 
     Serial.println(F("starting DMP"));
     devStatus = mpu.dmpInitialize();
+    mpu.setXGyroOffset(17);
+    mpu.setYGyroOffset(-69);
+    mpu.setZGyroOffset(27);
+    mpu.setZAccelOffset(1551); 
 
     if (devStatus == 0) {
         Serial.println(F("Enabling DMP"));
