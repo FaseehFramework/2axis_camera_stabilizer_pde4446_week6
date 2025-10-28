@@ -40,10 +40,6 @@ void setup() {
     
     mpu.initialize();
     pinMode(INTERRUPT_PIN, INPUT);
-    if (!mpu.testConnection()) {
-        Serial.println(F("MPU6050 connection failed"));
-        while(1);
-    }
     devStatus = mpu.dmpInitialize();
 
     mpu.setXGyroOffset(17);
@@ -58,9 +54,6 @@ void setup() {
         dmpReady = true;
         packetSize = mpu.dmpGetFIFOPacketSize();
     } else {
-        Serial.print(F("DMP Initialization failed (code "));
-        Serial.print(devStatus);
-        Serial.println(F(")"));
     }
 
     servo0.attach(10);
@@ -71,19 +64,19 @@ void setup() {
 void loop() {
     if (!dmpReady) return;
 
-    if (!mpuInterrupt && fifoCount < packetSize) {
+    while (!mpuInterrupt && fifoCount < packetSize) {
         if (mpuInterrupt && fifoCount < packetSize) {
-           fifoCount = mpu.getFIFOCount();
+          fifoCount = mpu.getFIFOCount();
         }
-        return;
     }
 
     mpuInterrupt = false;
     mpuIntStatus = mpu.getIntStatus();
-    fifoCount = mpu.getFIFOCount();
+    fifoCount = mpy.getFIFOCount();
 
     if ((mpuIntStatus & _BV(MPU6050_INTERRUPT_FIFO_OFLOW_BIT)) || fifoCount >= 1024) {
         mpu.resetFIFO();
+        fifoCount = mpu.getFIFOCount(); 
         Serial.println(F("FIFO overflow!"));
 
     } else if (mpuIntStatus & _BV(MPU6050_INTERRUPT_DMP_INT_BIT)) {
@@ -98,7 +91,6 @@ void loop() {
         if (j <= 300) {
             correct = ypr[0] * 180 / M_PI; 
             j++;
-
             servo0.write(90);
             servo1.write(90);
             servo2.write(90);
