@@ -17,6 +17,7 @@ uint8_t fifoBuffer[64];
 Quaternion q;
 VectorFloat gravity;
 float ypr[3]; 
+
 Servo servo0; // Yaw
 Servo servo1; // Pitch (Tilt)
 Servo servo2; // Roll
@@ -34,17 +35,12 @@ void setup() {
     #endif
     Serial.begin(38400); 
     
-    Serial.println(F("Initializing I2C devices"));
     mpu.initialize();
     pinMode(INTERRUPT_PIN, INPUT);
-
     if (!mpu.testConnection()) {
         Serial.println(F("MPU6050 connection failed"));
         while(1);
     }
-    Serial.println(F("MPU6050 connection successful"));
-
-    Serial.println(F("Initializing DMP"));
     devStatus = mpu.dmpInitialize();
 
     mpu.setXGyroOffset(17);
@@ -53,13 +49,11 @@ void setup() {
     mpu.setZAccelOffset(1551);
 
     if (devStatus == 0) {
-        Serial.println(F("Enabling DMP"));
         mpu.setDMPEnabled(true);
         attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
         mpuIntStatus = mpu.getIntStatus();
         dmpReady = true;
         packetSize = mpu.dmpGetFIFOPacketSize();
-        Serial.println(F("DMP ready!"));
     } else {
         Serial.print(F("DMP Initialization failed (code "));
         Serial.print(devStatus);
@@ -77,7 +71,8 @@ void setup() {
 void loop() {
     if (!dmpReady) return;
 
-    while (!mpuInterrupt && fifoCount < packetSize) {
+    if (!mpuInterrupt && fifoCount < packetSize) {
+        return; 
     }
 
     mpuInterrupt = false;
@@ -97,9 +92,13 @@ void loop() {
         mpu.dmpGetGravity(&gravity, &q);
         mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-        float yaw   = ypr[0] * 180 / M_PI;
-        float pitch = ypr[1] * 180 / M_PI;
-        float roll  = ypr[2] * 180 / M_PI;
+        
+        int servo0Value = map(ypr[0] * 180 / M_PI, -90, 90, 180, 0); // Yaw
+        int servo1Value = map(ypr[1] * 180 / M_PI, -90, 90, 180, 0); // Pitch
+        int servo2Value = map(ypr[2] * 180 / M_PI, -90, 90, 0, 180); // Roll
 
+        servo0.write(servo0Value);
+        servo1.write(servo1Value);
+        servo2.write(servo2Value);
     }
 }
