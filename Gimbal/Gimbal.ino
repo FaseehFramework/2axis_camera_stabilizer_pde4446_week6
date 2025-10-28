@@ -16,11 +16,14 @@ uint8_t fifoBuffer[64];
 
 Quaternion q;
 VectorFloat gravity;
-float ypr[3]; 
+float ypr[3]; // [yaw, pitch, roll]
 
 Servo servo0; // Yaw
 Servo servo1; // Pitch (Tilt)
 Servo servo2; // Roll
+
+float correct = 0; 
+int j = 0; 
 
 #define INTERRUPT_PIN 2
 volatile bool mpuInterrupt = false;
@@ -63,16 +66,16 @@ void setup() {
     servo0.attach(10);
     servo1.attach(9);
     servo2.attach(8);
-    servo0.write(90);
-    servo1.write(90);
-    servo2.write(90);
 }
 
 void loop() {
     if (!dmpReady) return;
 
     if (!mpuInterrupt && fifoCount < packetSize) {
-        return; 
+        if (mpuInterrupt && fifoCount < packetSize) {
+           fifoCount = mpu.getFIFOCount();
+        }
+        return;
     }
 
     mpuInterrupt = false;
@@ -91,14 +94,27 @@ void loop() {
         mpu.dmpGetQuaternion(&q, fifoBuffer);
         mpu.dmpGetGravity(&gravity, &q);
         mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-
         
-        int servo0Value = map(ypr[0] * 180 / M_PI, -90, 90, 180, 0); // Yaw
-        int servo1Value = map(ypr[1] * 180 / M_PI, -90, 90, 180, 0); // Pitch
-        int servo2Value = map(ypr[2] * 180 / M_PI, -90, 90, 0, 180); // Roll
+        if (j <= 300) {
+            correct = ypr[0] * 180 / M_PI; 
+            j++;
 
-        servo0.write(servo0Value);
-        servo1.write(servo1Value);
-        servo2.write(servo2Value);
+            servo0.write(90);
+            servo1.write(90);
+            servo2.write(90);
+        }
+        else {
+            float yaw = (ypr[0] * 180 / M_PI) - correct;
+            float pitch = ypr[1] * 180 / M_PI;
+            float roll = ypr[2] * 180 / M_PI;
+
+            int servo0Value = map(yaw, -90, 90, 180, 0);   // Yaw
+            int servo1Value = map(pitch, -90, 90, 180, 0); // Pitch
+            int servo2Value = map(roll, -90, 90, 0, 180);  // Roll
+
+            servo0.write(servo0Value);
+            servo1.write(servo1Value);
+            servo2.write(servo2Value);
+        }
     }
 }
