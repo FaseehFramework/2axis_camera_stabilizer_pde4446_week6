@@ -36,6 +36,7 @@ float rollKd = 0.04;
 float pitchInput, pitchOutput, pitchError, pitchLastError = 0, pitchIntegral = 0;
 float rollInput, rollOutput, rollError, rollLastError = 0, rollIntegral = 0;
 unsigned long lastLoopTime;
+String serialInputString = ""; // To buffer serial input
 
 #define INTERRUPT_PIN 2
 volatile bool mpuInterrupt = false;
@@ -53,6 +54,7 @@ void setup() {
     
     mpu.initialize();
     pinMode(INTERRUPT_PIN, INPUT);
+    Serial.println(F("Initializing DMP..."));
     devStatus = mpu.dmpInitialize();
 
     mpu.setXGyroOffset(1);
@@ -66,17 +68,88 @@ void setup() {
         mpuIntStatus = mpu.getIntStatus();
         dmpReady = true;
         packetSize = mpu.dmpGetFIFOPacketSize();
+        Serial.println(F("DMP connection successful."));
     } else {
+        Serial.print(F("DMP Initialization failed (code "));
+        Serial.print(devStatus);
+        Serial.println(F(")"));
     }
 
     servo0.attach(10);
     servo1.attach(9);
     servo2.attach(8);
+    Serial.println(F("Servos attached. Calibration will run for 300 cycles."));
 
-    lastLoopTime = micros();
+    Serial.println(F("--- PID Tuning Commands ---"));
+    Serial.println(F("Send commands via Serial Monitor (e.g., 'PP 2.5')"));
+    Serial.println(F("PP [value] - Set Pitch Kp"));
+    Serial.println(F("PI [value] - Set Pitch Ki"));
+    Serial.println(F("PD [value] - Set Pitch Kd"));
+    Serial.println(F("RP [value] - Set Roll Kp"));
+    Serial.println(F("RI [value] - Set Roll Ki"));
+    Serial.println(F("RD [value] - Set Roll Kd"));
+    Serial.println(F("---------------------------"));
+
+    lastLoopTime = micros(); // Initialize PID loop timer
 }
 
+void parseCommand(String cmd) {
+    cmd.trim(); // Remove whitespace
+    int splitPos = cmd.indexOf(' ');
+    if (splitPos == -1) return; // Invalid command format
+    
+    String command = cmd.substring(0, splitPos);
+    command.toUpperCase(); // Case-insensitive commands
+    float value = cmd.substring(splitPos + 1).toFloat();
+
+    if (command == F("PP")) {
+        pitchKp = value;
+        pitchIntegral = 0; // Reset integral on gain change
+        Serial.print(F(">>> Set Pitch Kp = ")); Serial.println(pitchKp);
+    } else if (command == F("PI")) {
+        pitchKi = value;
+        pitchIntegral = 0;
+        Serial.print(F(">>> Set Pitch Ki = ")); Serial.println(pitchKi);
+    } else if (command == F("PD")) {
+        pitchKd = value;
+        Serial.print(F(">>> Set Pitch Kd = ")); Serial.println(pitchKd);
+    } else if (command == F("RP")) {
+        rollKp = value;
+        rollIntegral = 0;
+        Serial.print(F(">>> Set Roll Kp = ")); Serial.println(rollKp);
+    } else if (command == F("RI")) {
+        rollKi = value;
+        rollIntegral = 0;
+        Serial.print(F(">>> Set Roll Ki = ")); Serial.println(rollKi);
+    } else if (command == F("RD")) {
+        rollKd = value;
+        Serial.print(F(">>> Set Roll Kd = ")); Serial.println(rollKd);
+    } else {
+        Serial.println(F(">>> Unknown command."));
+    }
+
+    Serial.print(F("Current Pitch[P:")); Serial.print(pitchKp);
+    Serial.print(F(",I:")); Serial.print(pitchKi);
+    Serial.print(F(",D:")); Serial.print(pitchKd);
+    Serial.print(F("] Roll[P:")); Serial.print(rollKp);
+    Serial.print(F(",I:")); Serial.print(rollKi);
+    Serial.print(F(",D:")); Serial.print(rollKd);
+    Serial.println(F("]"));
+}
+
+void handleSerialInput() {
+    while (Serial.available()) {
+        char inChar = (char)Serial.read();
+        if (inChar == '\n') {
+            parseCommand(serialInputString);
+            serialInputString = ""; // Clear for next command
+        } else {
+            serialInputString += inChar;
+        }
+    }
+}
 void loop() {
+    handleSerialInput(); // Check for tuning commands first
     if (!dmpReady) return;
 
     while (!mpuInterrupt && fifoCount < packetSize) {
@@ -106,9 +179,13 @@ void loop() {
         if (j <= 300) {
             correct = ypr[0] * 180 / M_PI;
             j++;
-            servo0.write(90);
-            servo1.write(90);
-            servo2.write(90);
+            if (j == 301) { // Print message once calibration is done
+                 Serial.println(F("Calibration complete. Starting stabilization."));
+            } else {
+                 servo0.write(90);
+                 servo1.write(90);
+                 servo2.write(90);
+            }
         }
         else {
             unsigned long now = micros();
@@ -120,10 +197,7 @@ void loop() {
             int servo0Value = map(ypr[0], -90, 90, 0, 180); //yaw
             servo0.write(servo0Value);
 
-            pitchInput = ypr[1] * 180 / M_PI; // Get sensor reading
-            pitchError = pitchSetpoint - pitchInput; // Calculate error
-            pitchIntegral += pitchError * dt; // Accumulate integral
-            float pitchDerivative = (pitchError - pitchLastError) / dt; // Calculate derivative
+            pitchInput = ypr[1] * 180 / M_PI; 
             pitchError = pitchSetpoint - pitchInput; 
             pitchIntegral += pitchError * dt; 
             float pitchDerivative = (pitchError - pitchLastError) / dt; 
