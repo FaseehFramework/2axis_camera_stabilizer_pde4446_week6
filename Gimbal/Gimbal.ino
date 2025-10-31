@@ -114,7 +114,7 @@ void loop() {
             unsigned long now = micros();
             float dt = (now - lastLoopTime) / 1000000.0; 
             lastLoopTime = now;
-            if (dt == 0) dt = 1e-6; 
+            if (dt == 0) dt = 1e-6;
 
             ypr[0] = ypr[0] - correct;
             int servo0Value = map(ypr[0], -90, 90, 0, 180); //yaw
@@ -124,21 +124,22 @@ void loop() {
             pitchError = pitchSetpoint - pitchInput; // Calculate error
             pitchIntegral += pitchError * dt; // Accumulate integral
             float pitchDerivative = (pitchError - pitchLastError) / dt; // Calculate derivative
+            pitchError = pitchSetpoint - pitchInput; 
+            pitchIntegral += pitchError * dt; 
+            float pitchDerivative = (pitchError - pitchLastError) / dt; 
             pitchOutput = (pitchKp * pitchError) + (pitchKi * pitchIntegral) + (pitchKd * pitchDerivative);
-            pitchLastError = pitchError; // Save error for next loop
+            pitchLastError = pitchError; 
 
-            rollInput = ypr[2] * 180 / M_PI; // Get sensor reading
-            rollError = rollSetpoint - rollInput; // Calculate error
-            rollIntegral += rollError * dt; // Accumulate integral
-            float rollDerivative = (rollError - rollLastError) / dt; // Calculate derivative
+            rollInput = ypr[2] * 180 / M_PI; 
+            rollError = rollSetpoint - rollInput; 
+            rollIntegral += rollError * dt; 
+            float rollDerivative = (rollError - rollLastError) / dt; 
             rollOutput = (rollKp * rollError) + (rollKi * rollIntegral) + (rollKd * rollDerivative);
-            rollLastError = rollError; // Save error for next loop
-            
-
-            float pitch_old = ypr[1] * 180 / M_PI;
-            float roll_old = ypr[2] * 180 / M_PI;
-            int servo1Value = map(pitch_old, -90, 90, 180, 0); 
-            int servo2Value = map(roll_old, -90, 90, 0, 180);  
+            rollLastError = rollError; 
+            int servo1Value = 92 + pitchOutput;
+            int servo2Value = 78 - rollOutput;
+            servo1Value = constrain(servo1Value, 0, 180);
+            servo2Value = constrain(servo2Value, 0, 180);
             servo1.write(servo1Value);
             servo2.write(servo2Value);
         }
